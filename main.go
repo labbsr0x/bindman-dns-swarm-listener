@@ -6,12 +6,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/Sirupsen/logrus"
 
 	hookClient "github.com/labbsr0x/sandman-dns-webhook/src/client"
 	"github.com/labbsr0x/sandman-dns-webhook/src/types"
+	"github.com/labbsr0x/sandman-swarm-listener/docker"
 )
 
 const (
@@ -26,48 +26,27 @@ const (
 )
 
 func main() {
-	// dockerClient, err := docker.NewEnvClient()
-	// types.PanicIfError(types.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the Docker Client: %s", err), Code: 1, Err: err})
+	dockerClient, err := docker.NewEnvClient()
+	types.PanicIfError(types.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the Docker Client: %s", err), Code: 1, Err: err})
 
 	hookClient, err := hookClient.New()
 	types.PanicIfError(types.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the sandman dns manager hook client: %s", err), Code: 2, Err: err})
 
-	listen(nil, hookClient) // fire and forget
+	listen(dockerClient, hookClient) // fire and forget
 }
 
 // listen prepares the ground to listen to docker events. it blocks the main thread keeping it alive
-func listen(dockerClient interface{}, hookClient *hookClient.DNSWebhookClient) {
+func listen(dockerClient *docker.Client, hookClient *hookClient.DNSWebhookClient) {
 	listeningCtx, cancel := context.WithCancel(context.Background())
-	events, errs := Events(listeningCtx, nil)
+	events, errs := dockerClient.Events(listeningCtx, docker.EventsOptions{})
 	go handleMessages(listeningCtx, events)
 	go handleErrors(listeningCtx, errs, cancel)
 	go gracefulStop(cancel)
 	select {} // keep alive magic
 }
 
-// Events mock function
-func Events(ctx context.Context, t interface{}) (<-chan string, <-chan error) {
-	messages := make(chan string)
-	errs := make(chan error)
-	go func() {
-		i := 0
-		for {
-			select {
-			case <-ctx.Done():
-				logrus.Info("Stopping event emitter")
-				return
-			default:
-				messages <- fmt.Sprintf("teste %v", i)
-				time.Sleep(3 * time.Second)
-				i++
-			}
-		}
-	}()
-	return messages, errs
-}
-
 // handleMessages deals with the event messages being dispatched by the docker swarm cluster
-func handleMessages(ctx context.Context, events <-chan string) {
+func handleMessages(ctx context.Context, events <-chan docker.Message) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -75,6 +54,7 @@ func handleMessages(ctx context.Context, events <-chan string) {
 			return
 		case message := <-events:
 			fmt.Println("Message received: ", message)
+
 		}
 	}
 }
@@ -108,6 +88,5 @@ func handleErrors(ctx context.Context, errs <-chan error, cancel context.CancelF
 func stop(returnCode int, cancel context.CancelFunc) {
 	logrus.Infof("Stopping routines...")
 	cancel()
-	logrus.Infof("Routines stopeed!")
 	os.Exit(returnCode)
 }
