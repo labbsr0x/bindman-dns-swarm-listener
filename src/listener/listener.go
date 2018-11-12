@@ -11,9 +11,10 @@ import (
 	"github.com/Sirupsen/logrus"
 	hook "github.com/labbsr0x/sandman-dns-webhook/src/client"
 	hookTypes "github.com/labbsr0x/sandman-dns-webhook/src/types"
-	docker "github.com/labbsr0x/sandman-swarm-listener/src/docker"
-	dockerTypes "github.com/labbsr0x/sandman-swarm-listener/src/docker/types"
-	"github.com/labbsr0x/sandman-swarm-listener/src/types"
+
+	dockerTypes "github.com/docker/docker/api/types"
+	dockerEvents "github.com/docker/docker/api/types/events"
+	docker "github.com/docker/docker/client"
 )
 
 // SwarmListener owns a Docker Client and a Hook Client
@@ -27,11 +28,11 @@ func New() *SwarmListener {
 	toReturn := SwarmListener{}
 
 	dockerClient, err := docker.NewEnvClient()
-	hookTypes.PanicIfError(hookTypes.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the Docker Client: %s", err), Code: types.ErrInitDockerClient, Err: err})
+	hookTypes.PanicIfError(hookTypes.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the Docker Client: %s", err), Code: ErrInitDockerClient, Err: err})
 	toReturn.DockerClient = dockerClient
 
 	hookClient, err := hook.New()
-	hookTypes.PanicIfError(hookTypes.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the sandman dns manager hook client: %s", err), Code: types.ErrInitHookClient, Err: err})
+	hookTypes.PanicIfError(hookTypes.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the sandman dns manager hook client: %s", err), Code: ErrInitHookClient, Err: err})
 	toReturn.WebhookClient = hookClient
 
 	return &toReturn
@@ -48,7 +49,7 @@ func (sl *SwarmListener) Listen() {
 }
 
 // handleEvents deals with the events being dispatched by the docker swarm cluster
-func (sl *SwarmListener) handleEvents(ctx context.Context, events <-chan dockerTypes.Message) {
+func (sl *SwarmListener) handleEvents(ctx context.Context, events <-chan dockerEvents.Message) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -61,7 +62,7 @@ func (sl *SwarmListener) handleEvents(ctx context.Context, events <-chan dockerT
 }
 
 // treatEvent analyses the docker event and take actions accordingly
-func (sl *SwarmListener) treatEvent(event dockerTypes.Message) {
+func (sl *SwarmListener) treatEvent(event dockerEvents.Message) {
 	if sl.isDNSEvent(event) {
 		logrus.Infof("Got event! Type: %v; Action: %v; Service Name: %v", event.Type, event.Action, event.Actor.Attributes["name"])
 
@@ -69,7 +70,7 @@ func (sl *SwarmListener) treatEvent(event dockerTypes.Message) {
 }
 
 // treatMessage identifies if the event is a DNS update
-func (sl *SwarmListener) isDNSEvent(event dockerTypes.Message) bool {
+func (sl *SwarmListener) isDNSEvent(event dockerEvents.Message) bool {
 	return event.Scope == "swarm" && event.Type == "service" && (event.Action == "create" || event.Action == "remove" || event.Action == "update")
 }
 
@@ -93,7 +94,7 @@ func (sl *SwarmListener) handleErrors(ctx context.Context, errs <-chan error, ca
 			return
 		case err := <-errs:
 			logrus.Errorf("Error communicating with the docker swarm cluster: %s", err)
-			sl.stop(types.ErrTalkToDocker, cancel)
+			sl.stop(ErrTalkToDocker, cancel)
 		}
 	}
 }
@@ -105,3 +106,14 @@ func (sl *SwarmListener) stop(returnCode int, cancel context.CancelFunc) {
 	time.Sleep(2 * time.Second)
 	os.Exit(returnCode)
 }
+
+const (
+	// ErrInitDockerClient error code for problems while creating the Docker Client
+	ErrInitDockerClient = iota
+
+	// ErrInitHookClient error code for problems while creating the Hook Client
+	ErrInitHookClient = iota
+
+	// ErrTalkToDocker error code for problems while communicating with docker
+	ErrTalkToDocker = iota
+)
