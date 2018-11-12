@@ -13,8 +13,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/labbsr0x/sandman-swarm-listener/docker/types"
-	"github.com/labbsr0x/sandman-swarm-listener/docker/types/versions"
+	"github.com/labbsr0x/sandman-swarm-listener/src/docker/types"
+	"github.com/labbsr0x/sandman-swarm-listener/src/docker/types/versions"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context/ctxhttp"
 )
