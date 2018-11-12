@@ -14,15 +14,6 @@ import (
 	"github.com/docker/go-connections/tlsconfig"
 )
 
-import "github.com/labbsr0x/sandman-swarm-listener/docker/types/filters"
-
-// EventsOptions holds parameters to filter events with.
-type EventsOptions struct {
-	Since   string
-	Until   string
-	Filters filters.Args
-}
-
 // ErrRedirect is the error returned by checkRedirect when the request is non-GET.
 var ErrRedirect = errors.New("unexpected redirect in response")
 

@@ -3,7 +3,7 @@ package filters
 import (
 	"encoding/json"
 
-	"github.com/labbsr0x/sandman-swarm-listener/docker/types/versions"
+	"github.com/labbsr0x/sandman-swarm-listener/src/docker/types/versions"
 )
 
 // Args stores a mapping of keys to a set of multiple values.
