@@ -40,7 +40,7 @@ func New() *SwarmListener {
 	hookTypes.PanicIfError(hookTypes.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the sandman dns manager hook client: %s", err), Code: ErrInitHookClient, Err: err})
 	toReturn.WebhookClient = hookClient
 
-	ttl := os.Getenv("DNS_TTL")
+	ttl := os.Getenv("SANDMAN_DNS_TTL")
 	ttl = strings.Trim(ttl, " ")
 	toReturn.TTL, err = strconv.Atoi(ttl)
 	if err != nil {

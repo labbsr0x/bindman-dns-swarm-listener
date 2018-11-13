@@ -14,8 +14,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflag
 # PACK
 FROM scratch
 
-ENV REVERSE_PROXY_ADDRESS ""
-ENV MANAGER_ADDRESS ""
+ENV SANDMAN_REVERSE_PROXY_ADDRESS ""
+ENV SANDMAN_DNS_MANAGER_ADDRESS ""
+ENV SANDMAN_DNS_TTL ""
 
 COPY --from=builder /listener /
 CMD ["./listener"]
