@@ -6,9 +6,9 @@ This project defines a Sandman DNS Listener that listens to a Docker Swarm event
 
 The Swarm Listener is configurable through environment variables. The following are mandatory:
 
-1. **MANAGER_ADDRESS**: the address of the DNS Manager which will manage the identified DNS updates. The DNS Manager should implement the Sandman DNS Webhook;
+1. **SANDMAN_DNS_MANAGER_ADDRESS**: the address of the DNS Manager which will manage the identified DNS updates. The DNS Manager should implement the Sandman DNS Webhook;
 
-2. **REVERSE_PROXY_ADDRESS**: the address of the Reverse Proxy which will load balance requests to the Sandman managed hostnames.
+2. **SANDMAN_REVERSE_PROXY_ADDRESS**: the address of the Reverse Proxy which will load balance requests to the Sandman managed hostnames.
 
 By the default, the Swarm Listener will query docker through the hosts' `docker.sock`. That can be changed through the following **optional** environment varibles:
 
@@ -19,6 +19,8 @@ By the default, the Swarm Listener will query docker through the hosts' `docker.
 3. **DOCKER_TLS_VERIFY**: enable or disable TLS verification, off by default;
 
 4. **DOCKER_CERT_PATH**: the path to load the TLS certificates from.
+
+A TTL needs to be defined for the DNS rules being managed by the Sandman project. By default, the TTL is **3600 seconds**. To change it, write to the `SANDMAN_DNS_TTL` environment variable.
 
 # DNS Rules
 
@@ -40,6 +42,6 @@ Sandman delegates hostname management by adopting a Tag system, where each servi
 
 **The intersection of these two Tag sets indicates to the Sandman which DNS Managers will manage which service hostname attribution.**
 
-Is in the rule `traefik.frontend.entryPoints` that Sandman is expecting these Tags to be defined, as a comma-separated list of strings.
+It is through the label `traefik.frontend.entryPoints` that Sandman is expecting these Tags to be defined, as a comma-separated list of strings.
 
 Using the Sandman CLI, consult which DNS Servers are available and choose the ones appropriate for your specific use.
