@@ -5,5 +5,6 @@ import (
 )
 
 func main() {
-	listener.New().Listen() // fire and forget
+	go listener.New().Listen() // fire and forget
+	select {}                  //keep alive magic
 }
