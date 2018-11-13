@@ -11,7 +11,7 @@ services:
       - TAGS=internal,intranet,internet
 
   sandman-dns-listener:
-    image: abilioesteves/sandman-swarm-listener:0.0.1
+    image: abilioesteves/sandman-swarm-listener:0.0.3
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
