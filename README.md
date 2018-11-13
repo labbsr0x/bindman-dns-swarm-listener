@@ -10,11 +10,11 @@ The Swarm Listener is configurable through environment variables. The following 
 
 2. **SANDMAN_REVERSE_PROXY_ADDRESS**: the address of the Reverse Proxy which will load balance requests to the Sandman managed hostnames.
 
-By the default, the Swarm Listener will query docker through the hosts' `docker.sock`. That can be changed through the following **optional** environment varibles:
+By the default, the Swarm Listener will query the docker host through its `docker.sock` (**and thus should be mapped as a volume**). That can be changed through the following **optional** environment varibles:
 
 1. **DOCKER_HOST**: docker server url, if necessary (e.g. remotely listening);
 
-2. **DOCKER_API_VERSION**: the version of the docker API to reach; defaults to latest when empty;
+2. **DOCKER_API_VERSION**: the version of the docker API to reach; defaults to latest when empty; 
 
 3. **DOCKER_TLS_VERIFY**: enable or disable TLS verification, off by default;
 
