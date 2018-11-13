@@ -3,8 +3,11 @@ package listener
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,6 +24,8 @@ import (
 type SwarmListener struct {
 	DockerClient  *docker.Client
 	WebhookClient *hook.DNSWebhookClient
+	TTL           int
+	managedNames  map[string]string
 }
 
 // New instantiates a new swarm listener
@@ -35,6 +40,15 @@ func New() *SwarmListener {
 	hookTypes.PanicIfError(hookTypes.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the sandman dns manager hook client: %s", err), Code: ErrInitHookClient, Err: err})
 	toReturn.WebhookClient = hookClient
 
+	ttl := os.Getenv("DNS_TTL")
+	ttl = strings.Trim(ttl, " ")
+	toReturn.TTL, err = strconv.Atoi(ttl)
+	if err != nil {
+		logrus.Errorf("Invalid TTL. Going default.")
+		toReturn.TTL = 3600
+	}
+
+	toReturn.managedNames = make(map[string]string)
 	return &toReturn
 }
 
@@ -56,16 +70,44 @@ func (sl *SwarmListener) handleEvents(ctx context.Context, events <-chan dockerE
 			logrus.Info("Stopping events handler")
 			return
 		case event := <-events:
-			sl.treatEvent(event)
+			go sl.treatEvent(ctx, event)
 		}
 	}
 }
 
-// treatEvent analyses the docker event and take actions accordingly
-func (sl *SwarmListener) treatEvent(event dockerEvents.Message) {
+// treatEvent analyses the docker event and take actions accordingly. will retry tree times before it gives up
+func (sl *SwarmListener) treatEvent(ctx context.Context, event dockerEvents.Message) {
 	if sl.isDNSEvent(event) {
-		logrus.Infof("Got event! Type: %v; Action: %v; Service Name: %v", event.Type, event.Action, event.Actor.Attributes["name"])
+		logrus.Infof("Got DNS Event! Action: %v; Service Name: %v", event.Action, event.Actor.Attributes["name"])
+		var retries uint = 3
+		for retries > 0 {
+			service, _, err := sl.DockerClient.ServiceInspectWithRaw(ctx, event.Actor.Attributes["name"], dockerTypes.ServiceInspectOptions{})
+			if err == nil {
+				name := service.Spec.Annotations.Labels["traefik.frontend.rule"]
+				tags := strings.Split(service.Spec.Annotations.Labels["traefik.frontend.entryPoints"], ",")
+				sl.delegate(event.Action, name, tags)
+				break
+			} else {
+				backoffWait(3, retries) // exponential backoff for retrial
+				retries--
+			}
+		}
+		if retries == 0 {
+			logrus.Errorf("Exhausted retries to inspect the service '%v' and %v its DNS Bindings", event.Actor.Attributes["name"], event.Action)
+		}
+	}
+}
 
+// delegate appropriately calls the dns manager to handle the addition or removal of a DNS rule
+func (sl *SwarmListener) delegate(action string, hostName string, tags []string) {
+	if strings.Trim(hostName, " ") != "" {
+		if action == "remove" || action == "update" {
+			sl.WebhookClient.RemoveRecord(hostName)
+		}
+
+		if action == "create" || action == "update" {
+			sl.WebhookClient.AddRecord(hostName, tags, sl.TTL)
+		}
 	}
 }
 
@@ -105,6 +147,12 @@ func (sl *SwarmListener) stop(returnCode int, cancel context.CancelFunc) {
 	cancel()
 	time.Sleep(2 * time.Second)
 	os.Exit(returnCode)
+}
+
+// backoffWait sleeps thread exponentially longer depending on the trial index
+func backoffWait(max uint, triesLeft uint) {
+	waitSeconds := time.Duration(math.Exp2(float64(max-triesLeft))+1) * time.Second
+	time.Sleep(waitSeconds)
 }
 
 const (
