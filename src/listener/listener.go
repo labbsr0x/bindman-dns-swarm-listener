@@ -60,6 +60,7 @@ func (sl *SwarmListener) Listen() {
 	go sl.handleEvents(listeningCtx, events)
 	go sl.handleErrors(listeningCtx, errs, cancel)
 	go sl.gracefulStop(cancel)
+	logrus.Info("Start listening...")
 }
 
 // handleEvents deals with the events being dispatched by the docker swarm cluster
