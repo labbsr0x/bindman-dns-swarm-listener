@@ -4,14 +4,12 @@ version: '3.5'
 services:
 
   sandman-dns-manager:
-    image: abilioesteves/sandman-dns-webhook-hook-sample:0.0.3
+    image: abilioesteves/sandman-dns-webhook-hook-sample:0.0.4
     ports: 
       - 7070:7070
-    environment:
-      - TAGS=internal,intranet,internet
 
   sandman-dns-listener:
-    image: abilioesteves/sandman-swarm-listener:0.0.3
+    image: abilioesteves/sandman-swarm-listener:0.0.4
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
@@ -20,4 +18,5 @@ services:
       - DOCKER_API_VERSION=1.38
       - SANDMAN_DNS_MANAGER_ADDRESS=sandman-swarm-listener_sandman-dns-manager_1:7070
       - SANDMAN_REVERSE_PROXY_ADDRESS=0.0.0.0
+      - SANDMAN_DNS_TAGS=internal,intranet,internet
       - SANDMAN_DNS_TTL=1020
