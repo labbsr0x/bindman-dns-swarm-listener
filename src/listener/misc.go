@@ -16,12 +16,7 @@ const (
 	ErrTalkToDocker = iota
 )
 
-const (
-	// SANDMAN_DNS_TTL environment variable name for TTL definition
-	SANDMAN_DNS_TTL = "SANDMAN_DNS_TTL"
-)
-
-// NamePair groups together the service name and the host name
+// SandmanService groups together the service name, the host name and the tags
 type SandmanService struct {
 	ServiceName string
 	HostName    string
