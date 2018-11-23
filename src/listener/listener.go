@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -25,7 +24,6 @@ import (
 type SwarmListener struct {
 	DockerClient  *docker.Client
 	WebhookClient *hook.DNSWebhookClient
-	TTL           int
 	managedNames  *cache.Cache
 }
 
@@ -40,14 +38,6 @@ func New() *SwarmListener {
 	hookClient, err := hook.New()
 	hookTypes.PanicIfError(hookTypes.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the sandman dns manager hook client: %s", err), Code: ErrInitHookClient, Err: err})
 	toReturn.WebhookClient = hookClient
-
-	ttl := os.Getenv(SANDMAN_DNS_TTL)
-	ttl = strings.Trim(ttl, " ")
-	toReturn.TTL, err = strconv.Atoi(ttl)
-	if err != nil {
-		logrus.Errorf("Invalid TTL. Going default.")
-		toReturn.TTL = 3600
-	}
 
 	toReturn.managedNames = cache.New(cache.NoExpiration, -1*time.Second)
 	return &toReturn
@@ -109,7 +99,7 @@ func (sl *SwarmListener) delegate(action string, service *SandmanService) {
 		}
 
 		if action == "create" || action == "update" {
-			ok, err = sl.WebhookClient.AddRecord(service.HostName, service.Tags, sl.TTL) // adds to the dns manager
+			ok, err = sl.WebhookClient.AddRecord(service.HostName, service.Tags) // adds to the dns manager
 			if ok {
 				sl.managedNames.Set(service.ServiceName, service, cache.NoExpiration) // adds to the cache
 			}
@@ -136,6 +126,7 @@ func (sl *SwarmListener) getServiceInfo(ctx context.Context, serviceName string,
 	return service, err
 }
 
+// getServiceInfoFromCache tries to get the service info from the cache
 func (sl *SwarmListener) getServiceInfoFromCache(serviceName string) (*SandmanService, error) {
 	if value, ok := sl.managedNames.Get(serviceName); ok {
 		if service, ok := value.(*SandmanService); ok {
