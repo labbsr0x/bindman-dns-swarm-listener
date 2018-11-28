@@ -1,4 +1,5 @@
 # Sandman Swarm Listener
+[![Go Report Card](https://goreportcard.com/badge/github.com/labbsr0x/sandman-dns-webhook)](https://goreportcard.com/report/github.com/labbsr0x/sandman-dns-webhook)
 
 This project defines a Sandman DNS Listener that listens to a Docker Swarm event stream and communicates services' DNS binding updates to its defined DNS Manager.
 
