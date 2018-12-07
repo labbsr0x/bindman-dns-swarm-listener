@@ -9,11 +9,9 @@ services:
       - 7070:7070
 
   sandman-dns-listener:
-    image: abilioesteves/sandman-swarm-listener:0.0.5
+    image: abilioesteves/sandman-swarm-listener:0.0.6
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - 7071:7071
     environment:
       - DOCKER_API_VERSION=1.38
       - SANDMAN_DNS_MANAGER_ADDRESS=sandman-dns-manager:7070
