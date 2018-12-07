@@ -20,7 +20,5 @@ ENV SANDMAN_DNS_MANAGER_ADDRESS ""
 ENV SANDMAN_DNS_TAGS ""
 ENV SANDMAN_DNS_TTL ""
 
-EXPOSE 7071
-
 COPY --from=builder /listener /
 CMD ["./listener"]
