@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	hook "github.com/labbsr0x/sandman-dns-webhook/src/client"
-	hookTypes "github.com/labbsr0x/sandman-dns-webhook/src/types"
+	hook "github.com/labbsr0x/bindman-dns-webhook/src/client"
+	hookTypes "github.com/labbsr0x/bindman-dns-webhook/src/types"
 
 	dockerTypes "github.com/docker/docker/api/types"
 	dockerEvents "github.com/docker/docker/api/types/events"
@@ -99,7 +99,7 @@ func (sl *SwarmListener) delegate(action string, service *SandmanService) {
 		}
 
 		if action == "create" || action == "update" {
-			ok, err = sl.WebhookClient.AddRecord(service.HostName, service.Tags) // adds to the dns manager
+			ok, err = sl.WebhookClient.AddRecord(service.HostName) // adds to the dns manager
 			if ok {
 				sl.managedNames.Set(service.ServiceName, service, cache.NoExpiration) // adds to the cache
 			}
