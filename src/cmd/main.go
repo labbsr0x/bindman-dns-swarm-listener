@@ -1,7 +1,7 @@
 package main
 
 import (
-	listener "github.com/labbsr0x/sandman-swarm-listener/src/listener"
+	listener "github.com/labbsr0x/bindman-dns-swarm-listener/src/listener"
 )
 
 func main() {
