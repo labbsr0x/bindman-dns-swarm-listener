@@ -116,7 +116,7 @@ func (sl *SwarmListener) delegate(action string, service *SandmanService) {
 			logrus.Errorf("Error to %v the HostName '%v' from the service '%v': %v", action, service.HostName, service.ServiceName, err)
 		}
 	} else {
-		logrus.Errorf("Invalid service. Errors: %v", strings.Join(errs, "; "))
+		logrus.Errorf("Invalid service %v. Errors: %v", service.ServiceName, strings.Join(errs, "; "))
 	}
 }
 
