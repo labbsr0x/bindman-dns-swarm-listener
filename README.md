@@ -25,6 +25,8 @@ By the default, the Bindman DNS Swarm Listener will query the docker host throug
 
 A TTL needs to be defined for the DNS rules being managed by the Sandman project. By default, the TTL is **3600 seconds**. To change it, write to the `BINDMAN_DNS_TTL` environment variable.
 
+The runtime mode can also be configured with the use of the `BINDMAN_MODE` environment variable: `empty|PROD` for production mode or `DEBUG` for debug mode.
+
 # DNS Rules
 
 The DNS binding rules should be written as service rules according to the format expected by [Traefik](https://github.com/containous/traefik), the default Reverse Proxy and Load Balancer adopted by this project. That is, each swarm service should run with the following deployment labels defined:

@@ -25,6 +25,7 @@ type SwarmListener struct {
 	DockerClient  *docker.Client
 	WebhookClient *hook.DNSWebhookClient
 	managedNames  *cache.Cache
+	Tags          []string
 }
 
 // New instantiates a new swarm listener
@@ -38,6 +39,12 @@ func New() *SwarmListener {
 	hookClient, err := hook.New()
 	hookTypes.PanicIfError(hookTypes.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the sandman dns manager hook client: %s", err), Code: ErrInitHookClient, Err: err})
 	toReturn.WebhookClient = hookClient
+
+	tagsStr := strings.Trim(os.Getenv("BINDMAN_DNS_TAGS"), " ")
+	if tagsStr == "" {
+		hookTypes.Panic(hookTypes.Error{Message: fmt.Sprintf("The BINDMAN_DNS_TAGS environment variable was not defined"), Code: ErrReadingTags, Err: nil})
+	}
+	toReturn.Tags = strings.Split(tagsStr, ",")
 
 	toReturn.managedNames = cache.New(cache.NoExpiration, -1*time.Second)
 	return &toReturn
@@ -83,7 +90,7 @@ func (sl *SwarmListener) treatEvent(ctx context.Context, event dockerEvents.Mess
 
 // delegate appropriately calls the dns manager to handle the addition or removal of a DNS rule
 func (sl *SwarmListener) delegate(action string, service *SandmanService) {
-	if strings.Trim(service.HostName, " ") != "" {
+	if ok, errs := service.check(sl.Tags); ok {
 		var ok bool
 		var err error
 		// for updates, we remove the old entry and later add the new one
@@ -108,6 +115,8 @@ func (sl *SwarmListener) delegate(action string, service *SandmanService) {
 		if !ok {
 			logrus.Errorf("Error to %v the HostName '%v' from the service '%v': %v", action, service.HostName, service.ServiceName, err)
 		}
+	} else {
+		logrus.Errorf("Invalid service. Errors: %v", strings.Join(errs, "; "))
 	}
 }
 

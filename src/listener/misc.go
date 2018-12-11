@@ -2,6 +2,7 @@ package listener
 
 import (
 	"math"
+	"strings"
 	"time"
 )
 
@@ -14,6 +15,9 @@ const (
 
 	// ErrTalkToDocker error code for problems while communicating with docker
 	ErrTalkToDocker = iota
+
+	// ErrReadingTags error code for problems while reading the Tags
+	ErrReadingTags = iota
 )
 
 // SandmanService groups together the service name, the host name and the tags
@@ -27,4 +31,30 @@ type SandmanService struct {
 func backoffWait(max uint, triesLeft uint) {
 	waitSeconds := time.Duration(math.Exp2(float64(max-triesLeft))+1) * time.Second
 	time.Sleep(waitSeconds)
+}
+
+// check checks if the service is ok; aggregate error strings on a slice
+func (s *SandmanService) check(contextTags []string) (ok bool, errs []string) {
+	ok = false
+
+	// dumb implementation but linear O(n + m)
+	rm := make(map[string]bool)
+	for ri := 0; ri < len(contextTags); ri++ {
+		rm[contextTags[ri]] = true
+	}
+
+	errs = append(errs, "No matching tags found")
+	for ri := 0; ri < len(s.Tags); ri++ {
+		if rm[s.Tags[ri]] {
+			ok = true
+			errs = nil
+		}
+	}
+
+	if strings.Trim(s.HostName, " ") == "" {
+		ok = false
+		errs = append(errs, "Hostname cannot be empty")
+	}
+
+	return ok, errs
 }
