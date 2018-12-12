@@ -16,8 +16,11 @@ const (
 	// ErrTalkToDocker error code for problems while communicating with docker
 	ErrTalkToDocker = iota
 
-	// ErrReadingTags error code for problems while reading the Tags
+	// ErrReadingTags error code for problems while reading the BINDMAN_DNS_TAGS environment variable
 	ErrReadingTags = iota
+
+	// ErrReadingReverseProxyAddress error code for problems while reading the BINDMAN_REVERSE_PROXY_ADDRESS environment variable
+	ErrReadingReverseProxyAddress = iota
 )
 
 // SandmanService groups together the service name, the host name and the tags
