@@ -22,10 +22,11 @@ import (
 
 // SwarmListener owns a Docker Client and a Hook Client
 type SwarmListener struct {
-	DockerClient  *docker.Client
-	WebhookClient *hook.DNSWebhookClient
-	managedNames  *cache.Cache
-	Tags          []string
+	DockerClient        *docker.Client
+	WebhookClient       *hook.DNSWebhookClient
+	managedNames        *cache.Cache
+	ReverseProxyAddress string
+	Tags                []string
 }
 
 // New instantiates a new swarm listener
@@ -45,6 +46,11 @@ func New() *SwarmListener {
 		hookTypes.Panic(hookTypes.Error{Message: fmt.Sprintf("The BINDMAN_DNS_TAGS environment variable was not defined"), Code: ErrReadingTags, Err: nil})
 	}
 	toReturn.Tags = strings.Split(tagsStr, ",")
+
+	toReturn.ReverseProxyAddress = strings.Trim(os.Getenv("BINDMAN_REVERSE_PROXY_ADDRESS"), " ")
+	if toReturn.ReverseProxyAddress == "" {
+		hookTypes.Panic(hookTypes.Error{Message: fmt.Sprintf("The BINDMAN_REVERSE_PROXY_ADDRESS environment variable was not defined"), Code: ErrReadingReverseProxyAddress, Err: nil})
+	}
 
 	toReturn.managedNames = cache.New(cache.NoExpiration, -1*time.Second)
 	return &toReturn
@@ -106,7 +112,7 @@ func (sl *SwarmListener) delegate(action string, service *SandmanService) {
 		}
 
 		if action == "create" || action == "update" {
-			ok, err = sl.WebhookClient.AddRecord(service.HostName) // adds to the dns manager
+			ok, err = sl.WebhookClient.AddRecord(service.HostName, "A", sl.ReverseProxyAddress) // adds to the dns manager
 			if ok {
 				sl.managedNames.Set(service.ServiceName, service, cache.NoExpiration) // adds to the cache
 			}
