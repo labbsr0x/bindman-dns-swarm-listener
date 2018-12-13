@@ -30,14 +30,14 @@ type SwarmListener struct {
 }
 
 // New instantiates a new swarm listener
-func New() *SwarmListener {
+func New(httpHelper hook.HTTPHelper) *SwarmListener {
 	toReturn := SwarmListener{}
 
 	dockerClient, err := docker.NewEnvClient()
 	hookTypes.PanicIfError(hookTypes.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the Docker Client: %s", err), Code: ErrInitDockerClient, Err: err})
 	toReturn.DockerClient = dockerClient
 
-	hookClient, err := hook.New()
+	hookClient, err := hook.New(httpHelper)
 	hookTypes.PanicIfError(hookTypes.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the sandman dns manager hook client: %s", err), Code: ErrInitHookClient, Err: err})
 	toReturn.WebhookClient = hookClient
 

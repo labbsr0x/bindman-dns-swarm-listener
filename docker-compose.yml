@@ -1,15 +1,15 @@
-# docker stack deploy -c docker-compose.yml <stack name>
+# docker stack deploy -c docker-compose.yml bindman
 version: '3.5'
 
 services:
 
   bindman-dns-manager:
-    image: abilioesteves/bindman-dns-webhook-hook-sample:0.0.3
+    image: abilioesteves/bindman-dns-webhook-hook-sample:0.0.5
     ports: 
       - 7070:7070
 
   bindman-dns-listener:
-    image: abilioesteves/bindman-dns-swarm-listener:0.0.4
+    image: abilioesteves/bindman-dns-swarm-listener:0.0.5
     build: .
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
