@@ -1,0 +1,17 @@
+# docker stack deploy -c hello.yml hello
+version: '3.5'
+
+services:
+
+  hello:
+    image: abilioesteves/hello:0.0.1
+    ports: 
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        mode: host
+    deploy:
+      labels:
+        - traefik.frontend.rule=Host:hello.test.com
+        - traefik.port=8080
+        - traefik.frontend.entryPoints=internal,intranet
