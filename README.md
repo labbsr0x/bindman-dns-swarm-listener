@@ -48,3 +48,42 @@ This project delegates hostname management by adopting a Tag system, where each 
 **The intersection of these two Tag sets indicates which DNS Managers will manage which service hostname attribution.**
 
 It is through the label `traefik.frontend.entryPoints` that we are expecting these Tags to be defined, as a comma-separated list of strings.
+
+# Try it yourself
+
+We provive a `docker-compose.yml` and `hello.yml` so you can see things happening.
+
+The `docker-compose.yml` defines a bindman swarm listener and a dummy manager to handle the hostname additions and removals.
+
+To start it, enable Docker Swarm on your host machine with a `docker swarm init` command and run:
+
+```
+docker stack deploy -c docker-compose.yml bindman
+```
+
+After that, deploy the provided hello service with:
+
+```
+docker stack deploy -c hello.yml hello
+```
+
+To check it works, a curl to the dummy manager should suffice:
+
+```
+$ curl <swarm host ip>:7070/records
+[{"name":"hello.test.com","value":"0.0.0.0","type":"A"}]
+```
+
+If you run the commands above on your own machine, the `<swarm host ip>` should be `localhost`
+
+Remove the hello stack with a `docker stack rm hello` command.
+
+Check it works:
+
+```
+$ curl <swarm host ip>:7070/records
+[]
+```
+
+
+
