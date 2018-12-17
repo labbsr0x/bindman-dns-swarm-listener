@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 
 	dockerTypes "github.com/docker/docker/api/types"
 	dockerEvents "github.com/docker/docker/api/types/events"
+	dockerSwarmTypes "github.com/docker/docker/api/types/swarm"
 	docker "github.com/docker/docker/client"
 
 	cache "github.com/patrickmn/go-cache"
@@ -27,11 +29,12 @@ type SwarmListener struct {
 	managedNames        *cache.Cache
 	ReverseProxyAddress string
 	Tags                []string
+	SyncLock            *sync.RWMutex
 }
 
 // New instantiates a new swarm listener
 func New(httpHelper hook.HTTPHelper) *SwarmListener {
-	toReturn := SwarmListener{}
+	toReturn := SwarmListener{SyncLock: new(sync.RWMutex)}
 
 	dockerClient, err := docker.NewEnvClient()
 	hookTypes.PanicIfError(hookTypes.Error{Message: fmt.Sprintf("Not possible to start the swarm listener; something went wrong while creating the Docker Client: %s", err), Code: ErrInitDockerClient, Err: err})
@@ -54,6 +57,24 @@ func New(httpHelper hook.HTTPHelper) *SwarmListener {
 
 	toReturn.managedNames = cache.New(cache.NoExpiration, -1*time.Second)
 	return &toReturn
+}
+
+// Sync defines a routine for syncing the dns records present in the docker swarm and being managed by the bindman dns manager
+func (sl *SwarmListener) Sync() {
+	defer sl.SyncLock.Unlock()
+	sl.SyncLock.Lock()
+
+	services, err := sl.DockerClient.ServiceList(context.Background(), dockerTypes.ServiceListOptions{})
+	hookTypes.PanicIfError(hookTypes.Error{Message: "Not possible to list the services for syncing", Err: err, Code: ErrListingServicesForSync})
+
+	for _, service := range services {
+		ss := sl.getSandmanServiceFromDockerService(service)
+		logrus.Infof("%v", ss)
+		// TODO for each service, try get it on the manager and perform the necessary adjustments
+
+		// bs := sl.WebhookClient.GetDNSRecord(ss.Name)
+	}
+
 }
 
 // Listen prepares the ground to listen to docker events
@@ -157,14 +178,20 @@ func (sl *SwarmListener) getServiceInfoFromInspect(ctx context.Context, serviceN
 	for retries > 0 {
 		service, _, err := sl.DockerClient.ServiceInspectWithRaw(ctx, serviceName, dockerTypes.ServiceInspectOptions{})
 		if err == nil {
-			hostName := strings.TrimPrefix(service.Spec.Annotations.Labels["traefik.frontend.rule"], "Host:")
-			tags := strings.Split(service.Spec.Annotations.Labels["traefik.frontend.entryPoints"], ",")
-			return &SandmanService{HostName: hostName, ServiceName: serviceName, Tags: tags}, nil
+			return sl.getSandmanServiceFromDockerService(service), nil
 		}
 		backoffWait(3, retries) // exponential backoff for retrial
 		retries--
 	}
 	return nil, fmt.Errorf("Exhausted retries to inspect the service '%v'", serviceName)
+}
+
+// getSandmanServiceFromDockerService gets the relevant information from a docker swarm service
+func (sl *SwarmListener) getSandmanServiceFromDockerService(service dockerSwarmTypes.Service) *SandmanService {
+	logrus.Infof("Docker Service to be handled: %v", service)
+	hostName := strings.TrimPrefix(service.Spec.Annotations.Labels["traefik.frontend.rule"], "Host:")
+	tags := strings.Split(service.Spec.Annotations.Labels["traefik.frontend.entryPoints"], ",")
+	return &SandmanService{HostName: hostName, ServiceName: service.Spec.Name, Tags: tags}
 }
 
 // treatMessage identifies if the event is a DNS update
