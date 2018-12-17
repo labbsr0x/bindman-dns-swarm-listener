@@ -21,6 +21,9 @@ const (
 
 	// ErrReadingReverseProxyAddress error code for problems while reading the BINDMAN_REVERSE_PROXY_ADDRESS environment variable
 	ErrReadingReverseProxyAddress = iota
+
+	// ErrListingServicesForSync error code for problems when listing the swarm services for syncing
+	ErrListingServicesForSync = iota
 )
 
 // SandmanService groups together the service name, the host name and the tags
