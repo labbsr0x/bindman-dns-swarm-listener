@@ -1,4 +1,5 @@
 # Bindman Swarm Listener
+![Build Status](https://travis-ci.com/labbsr0x/bindman-dns-swarm-listener.svg?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/labbsr0x/bindman-dns-swarm-listener)](https://goreportcard.com/report/github.com/labbsr0x/bindman-dns-swarm-listener)
 
 This project defines a Bindman-DNS Swarm Listener that listens to a Docker Swarm event stream and delegates its services' DNS binding updates to a Bindman DNS Manager.
