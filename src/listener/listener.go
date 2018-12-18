@@ -61,20 +61,34 @@ func New(httpHelper hook.HTTPHelper) *SwarmListener {
 
 // Sync defines a routine for syncing the dns records present in the docker swarm and being managed by the bindman dns manager
 func (sl *SwarmListener) Sync() {
-	defer sl.SyncLock.Unlock()
-	sl.SyncLock.Lock()
+	var maxTries uint = 100
+	var leftTries uint = 100
 
-	services, err := sl.DockerClient.ServiceList(context.Background(), dockerTypes.ServiceListOptions{})
-	hookTypes.PanicIfError(hookTypes.Error{Message: "Not possible to list the services for syncing", Err: err, Code: ErrListingServicesForSync})
+	for leftTries > 0 {
+		func() {
+			defer sl.SyncLock.Unlock()
+			sl.SyncLock.Lock()
 
-	for _, service := range services {
-		ss := sl.getSandmanServiceFromDockerService(service)
-		logrus.Infof("%v", ss)
-		// TODO for each service, try get it on the manager and perform the necessary adjustments
+			services, err := sl.DockerClient.ServiceList(context.Background(), dockerTypes.ServiceListOptions{})
+			hookTypes.PanicIfError(hookTypes.Error{Message: "Not possible to list the services for syncing", Err: err, Code: ErrListingServicesForSync})
 
-		// bs := sl.WebhookClient.GetDNSRecord(ss.Name)
+			for _, service := range services {
+				ss := sl.getSandmanServiceFromDockerService(service)
+				logrus.Infof("%v", ss)
+
+				bs, err := sl.WebhookClient.GetRecord(ss.ServiceName)
+				if err != nil { // means record was not found
+					sl.delegate("create", ss)
+				}
+
+				if bs.Name != ss.HostName || bs.Value != sl.ReverseProxyAddress || bs.Type != "A" {
+					sl.delegate("update", ss)
+				}
+			}
+		}()
+		backoffWait(maxTries, leftTries, time.Minute) // wait time increases exponentially
+		leftTries--
 	}
-
 }
 
 // Listen prepares the ground to listen to docker events
@@ -103,6 +117,8 @@ func (sl *SwarmListener) handleEvents(ctx context.Context, events <-chan dockerE
 // treatEvent analyses the docker event and take actions accordingly. will retry tree times before it gives up
 func (sl *SwarmListener) treatEvent(ctx context.Context, event dockerEvents.Message) {
 	if sl.isDNSEvent(event) {
+		defer sl.SyncLock.RUnlock()
+		sl.SyncLock.RLock()
 		serviceName := event.Actor.Attributes["name"]
 		logrus.Infof("Got DNS Event! Action: %v; Service Name: %v", event.Action, serviceName)
 
@@ -180,7 +196,7 @@ func (sl *SwarmListener) getServiceInfoFromInspect(ctx context.Context, serviceN
 		if err == nil {
 			return sl.getSandmanServiceFromDockerService(service), nil
 		}
-		backoffWait(3, retries) // exponential backoff for retrial
+		backoffWait(3, retries, time.Second) // exponential backoff for retrial
 		retries--
 	}
 	return nil, fmt.Errorf("Exhausted retries to inspect the service '%v'", serviceName)
