@@ -1,15 +1,18 @@
 # BUILD
 FROM golang:1.11-alpine as builder
 
-RUN apk add --no-cache git mercurial 
+RUN apk add --no-cache gcc build-base git mercurial 
 
-RUN mkdir -p $GOPATH/src/github.com/labbsr0x/sandman-swarm-listener/src
-WORKDIR $GOPATH/src/github.com/labbsr0x/sandman-swarm-listener/src
+ENV DIR $GOPATH/src/github.com/labbsr0x/bindman-dns-swarm-listener/src
+RUN mkdir -p ${DIR}
+WORKDIR ${DIR}
 
 ADD ./src ./
 RUN go get -v ./...
 
-WORKDIR $GOPATH/src/github.com/labbsr0x/sandman-swarm-listener/src/cmd
+RUN go test ./...
+
+WORKDIR ${DIR}/cmd
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o /listener .
 
 # PACK
