@@ -77,11 +77,11 @@ func (sl *SwarmListener) Sync() {
 				logrus.Infof("%v", ss)
 
 				bs, err := sl.WebhookClient.GetRecord(ss.ServiceName)
-				if err != nil { // means record was not found
+				if err != nil { // means record was not found on manager; so we create it
 					sl.delegate("create", ss)
 				}
 
-				if bs.Name != ss.HostName || bs.Value != sl.ReverseProxyAddress || bs.Type != "A" {
+				if bs.Name != ss.HostName || bs.Value != sl.ReverseProxyAddress || bs.Type != "A" { // if true, record exists and needs to be update
 					sl.delegate("update", ss)
 				}
 			}
@@ -119,6 +119,7 @@ func (sl *SwarmListener) treatEvent(ctx context.Context, event dockerEvents.Mess
 	if sl.isDNSEvent(event) {
 		defer sl.SyncLock.RUnlock()
 		sl.SyncLock.RLock()
+
 		serviceName := event.Actor.Attributes["name"]
 		logrus.Infof("Got DNS Event! Action: %v; Service Name: %v", event.Action, serviceName)
 
@@ -137,7 +138,7 @@ func (sl *SwarmListener) delegate(action string, service *SandmanService) {
 		var ok bool
 		var err error
 		// for updates, we remove the old entry and later add the new one
-		if action == "remove" || action == "update" {
+		if action == "remove" {
 			if value, keyExists := sl.managedNames.Get(service.ServiceName); keyExists {
 				if oldService, keyExists := value.(*SandmanService); keyExists {
 					ok, err = sl.WebhookClient.RemoveRecord(oldService.HostName) // removes from the dns manager
@@ -148,7 +149,14 @@ func (sl *SwarmListener) delegate(action string, service *SandmanService) {
 			}
 		}
 
-		if action == "create" || action == "update" {
+		if action == "update" {
+			ok, err = sl.WebhookClient.UpdateRecord(&hookTypes.DNSRecord{Name: service.HostName, Type: "A", Value: sl.ReverseProxyAddress})
+			if ok {
+				sl.managedNames.Set(service.ServiceName, service, cache.NoExpiration) // updates cache
+			}
+		}
+
+		if action == "create" {
 			ok, err = sl.WebhookClient.AddRecord(service.HostName, "A", sl.ReverseProxyAddress) // adds to the dns manager
 			if ok {
 				sl.managedNames.Set(service.ServiceName, service, cache.NoExpiration) // adds to the cache

@@ -6,6 +6,8 @@ import (
 )
 
 func main() {
-	go listener.New(new(hook.BindmanHTTPHelper)).Listen() // fire and forget
-	select {}                                             //keep alive magic
+	l := listener.New(new(hook.BindmanHTTPHelper))
+	go l.Sync()   // fire and forget
+	go l.Listen() // fire and forget
+	select {}     //keep alive magic
 }

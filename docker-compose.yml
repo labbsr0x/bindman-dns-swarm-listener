@@ -9,7 +9,7 @@ services:
       - 7070:7070
 
   bindman-dns-listener:
-    image: abilioesteves/bindman-dns-swarm-listener:0.0.6
+    image: abilioesteves/bindman-dns-swarm-listener:0.0.7
     build: .
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
