@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	hook "github.com/labbsr0x/bindman-dns-webhook/src/client"
 	hookTypes "github.com/labbsr0x/bindman-dns-webhook/src/types"
+	"github.com/sirupsen/logrus"
 
 	dockerTypes "github.com/docker/docker/api/types"
 	dockerEvents "github.com/docker/docker/api/types/events"
@@ -76,7 +76,7 @@ func (sl *SwarmListener) Sync() {
 				ss := sl.getSandmanServiceFromDockerService(service)
 				logrus.Infof("%v", ss)
 
-				bs, err := sl.WebhookClient.GetRecord(ss.ServiceName)
+				bs, err := sl.WebhookClient.GetRecord(ss.ServiceName, "A")
 				if err != nil { // means record was not found on manager; so we create it
 					sl.delegate("create", ss)
 				}
@@ -141,7 +141,7 @@ func (sl *SwarmListener) delegate(action string, service *SandmanService) {
 		if action == "remove" {
 			if value, keyExists := sl.managedNames.Get(service.ServiceName); keyExists {
 				if oldService, keyExists := value.(*SandmanService); keyExists {
-					ok, err = sl.WebhookClient.RemoveRecord(oldService.HostName) // removes from the dns manager
+					ok, err = sl.WebhookClient.RemoveRecord(oldService.HostName, "A") // removes from the dns manager
 					if ok {
 						sl.managedNames.Delete(oldService.ServiceName) // removes from the cache
 					}
