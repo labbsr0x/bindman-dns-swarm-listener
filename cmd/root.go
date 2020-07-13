@@ -5,6 +5,7 @@ import (
 	"github.com/labbsr0x/bindman-dns-swarm-listener/listener"
 	"github.com/spf13/cobra"
 	"os"
+	"strings"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
@@ -67,15 +68,19 @@ func initConfig() {
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
+	viper.SetEnvPrefix("BINDMAN")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+
 }
 
 func run(_ *cobra.Command, _ []string) {
-	l := listener.New()
+	listenerBuilder := new(listener.Builder).InitFromViper(viper.GetViper())
+	l := listenerBuilder.New()
 	go l.Sync()   // fire and forget
 	go l.Listen() // fire and forget
 	select {}     //keep alive magic

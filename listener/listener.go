@@ -23,42 +23,49 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type Builder struct {
+	BindmanManagerAddress string
+	ReverseProxyAddress   string
+	Tags                  []string
+}
+
 // SwarmListener owns a Docker Client and a Hook Client
 type SwarmListener struct {
-	DockerClient        *docker.Client
-	WebhookClient       *hook.DNSWebhookClient
-	managedNames        *cache.Cache
-	ReverseProxyAddress string
-	Tags                []string
-	SyncLock            *sync.RWMutex
+	*Builder
+	DockerClient  *docker.Client
+	WebHookClient *hook.DNSWebhookClient
+	managedNames  *cache.Cache
+	SyncLock      *sync.RWMutex
 }
 
 // New instantiates a new swarm listener
-func New() *SwarmListener {
-	toReturn := SwarmListener{SyncLock: new(sync.RWMutex)}
-
+func (b *Builder) New() *SwarmListener {
 	dockerClient, err := docker.NewEnvClient()
 	hookTypes.PanicIfError(err)
-	toReturn.DockerClient = dockerClient
 
-	hookClient, err := hook.New(os.Getenv("BINDMAN_DNS_MANAGER_ADDRESS"), http.DefaultClient)
+	hookClient, err := hook.New(b.BindmanManagerAddress, http.DefaultClient)
 	hookTypes.PanicIfError(err)
-	toReturn.WebhookClient = hookClient
 
-	tagsStr := strings.TrimSpace(os.Getenv("BINDMAN_DNS_TAGS"))
-	if tagsStr == "" {
-		hookTypes.Panic(hookTypes.Error{Message: fmt.Sprintf("The BINDMAN_DNS_TAGS environment variable was not defined"), Code: ErrReadingTags, Err: nil})
-	}
-	toReturn.Tags = strings.Split(tagsStr, ",")
-
-	toReturn.ReverseProxyAddress = strings.TrimSpace(os.Getenv("BINDMAN_REVERSE_PROXY_ADDRESS"))
-	if toReturn.ReverseProxyAddress == "" {
-		hookTypes.Panic(hookTypes.Error{Message: fmt.Sprintf("The BINDMAN_REVERSE_PROXY_ADDRESS environment variable was not defined"), Code: ErrReadingReverseProxyAddress, Err: nil})
+	if len(b.Tags) < 1 {
+		hookTypes.Panic(hookTypes.Error{
+			Message: fmt.Sprintf("The BINDMAN_DNS_TAGS environment variable was not defined"),
+			Code:    ErrReadingTags,
+			Err:     nil})
 	}
 
-	toReturn.managedNames = cache.New(cache.NoExpiration, -1)
+	if strings.TrimSpace(b.ReverseProxyAddress) == "" {
+		hookTypes.Panic(hookTypes.Error{
+			Message: fmt.Sprintf("The BINDMAN_REVERSE_PROXY_ADDRESS environment variable was not defined"),
+			Code:    ErrReadingReverseProxyAddress,
+			Err:     nil})
+	}
 
-	return &toReturn
+	return &SwarmListener{
+		DockerClient:  dockerClient,
+		WebHookClient: hookClient,
+		managedNames:  cache.New(cache.NoExpiration, -1),
+		SyncLock:      new(sync.RWMutex),
+	}
 }
 
 // Sync defines a routine for syncing the dns records present in the docker swarm and being managed by the bindman dns manager
@@ -93,7 +100,7 @@ func (sl *SwarmListener) Sync() {
 
 				for _, hostName := range ss.HostName {
 					fqdn := ToFqdn(hostName)
-					bs, err := sl.WebhookClient.GetRecord(fqdn, "A")
+					bs, err := sl.WebHookClient.GetRecord(fqdn, "A")
 					if err != nil {
 						if e, ok := err.(*hookTypes.Error); ok && e.Code == http.StatusNotFound { // means record was not found on manager; so we create it
 							sl.delegate("create", ss)
@@ -141,11 +148,6 @@ func (sl *SwarmListener) handleEvents(ctx context.Context, events <-chan dockerE
 			return
 		case event := <-events:
 			go sl.treatEvent(ctx, event)
-			//case err := <-errc:
-			//	if err == io.EOF {
-			//		logrus.Debug("Provider event stream closed")
-			//	}
-			//	return err
 		}
 	}
 }
@@ -194,7 +196,7 @@ func (sl *SwarmListener) delegate(action string, service *SandmanService) {
 func (sl *SwarmListener) createService(service *SandmanService) error {
 	for _, hostName := range service.HostName {
 		fqdn := ToFqdn(hostName)
-		err := sl.WebhookClient.AddRecord(fqdn, "A", sl.ReverseProxyAddress) // adds to the dns manager
+		err := sl.WebHookClient.AddRecord(fqdn, "A", sl.ReverseProxyAddress) // adds to the dns manager
 		if err != nil {
 			return err
 		}
@@ -211,7 +213,7 @@ func (sl *SwarmListener) updateService(service *SandmanService) error {
 	}
 	for _, hostName := range service.HostName {
 		fqdn := ToFqdn(hostName)
-		err := sl.WebhookClient.UpdateRecord(&hookTypes.DNSRecord{Name: fqdn, Type: "A", Value: sl.ReverseProxyAddress})
+		err := sl.WebHookClient.UpdateRecord(&hookTypes.DNSRecord{Name: fqdn, Type: "A", Value: sl.ReverseProxyAddress})
 		if err != nil {
 			return err
 		}
@@ -226,7 +228,7 @@ func (sl *SwarmListener) removeService(service *SandmanService) (err error) {
 		if oldService, castOk := value.(*SandmanService); castOk {
 			for _, hostName := range oldService.HostName {
 				fqdn := ToFqdn(hostName)
-				err = sl.WebhookClient.RemoveRecord(ToFqdn(fqdn), "A") // removes from the dns manager
+				err = sl.WebHookClient.RemoveRecord(ToFqdn(fqdn), "A") // removes from the dns manager
 				if err == nil {
 					sl.managedNames.Delete(oldService.ServiceName) // removes from the cache
 				}
