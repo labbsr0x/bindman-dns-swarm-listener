@@ -83,6 +83,7 @@ func (sl *SwarmListener) Sync() {
 
 			sFilters.Add("label", "traefik.frontend.rule")
 			sFilters.Add("label", "traefik.frontend.entryPoints")
+			sFilters.Add("label", "traefik.enable")
 
 			services, err := sl.DockerClient.ServiceList(context.Background(), dockerTypes.ServiceListOptions{Filters: sFilters})
 			hookTypes.PanicIfError(err)
@@ -296,11 +297,21 @@ func (sl *SwarmListener) getServiceInfoFromInspect(ctx context.Context, serviceN
 func (sl *SwarmListener) getSandmanServiceFromDockerService(service dockerSwarmTypes.Service) *SandmanService {
 	logrus.Infof("Docker Service to be handled: %v", service)
 
+	hostNames := make([]string, 0)
 	// rule label accepts a sequence of literal hosts.
-	hostNames := getHostNamesFromLabel(service.Spec.Annotations.Labels["traefik.frontend.rule"])
+	hostNameLabels := findTraefikLabelForHostNames(service.Spec.Annotations.Labels)
+	for _, hostNameLabel := range hostNameLabels {
+		hostNames = append(hostNames, getHostNamesFromLabelRegex(service.Spec.Annotations.Labels[hostNameLabel])...)
+	}
+
 	logrus.Debugf("hostNames extracted from label %q", hostNames)
 
-	tags := strings.Split(service.Spec.Annotations.Labels["traefik.frontend.entryPoints"], ",")
+	tags := make([]string, 0)
+	tagsLabels := findTraefikLabelForEntryPoints(service.Spec.Annotations.Labels)
+	for _, tagLabel := range tagsLabels {
+		tags = append(tags, strings.Split(service.Spec.Annotations.Labels[tagLabel], ",")...)
+	}
+
 	return &SandmanService{HostName: hostNames, ServiceName: service.Spec.Name, Tags: tags}
 }
 

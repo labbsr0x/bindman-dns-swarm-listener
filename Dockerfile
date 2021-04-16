@@ -1,22 +1,20 @@
 # BUILD
-FROM golang:1.11-alpine as builder
+FROM golang:1.12.5-stretch as builder
 
-RUN apk add --no-cache gcc build-base git mercurial 
+# RUN apk add --no-cache gcc build-base git mercurial 
 
-ENV DIR $GOPATH/src/github.com/labbsr0x/bindman-dns-swarm-listener/src
-RUN mkdir -p ${DIR}
-WORKDIR ${DIR}
+# ENV DIR $GOPATH/src/github.com/labbsr0x/bindman-dns-swarm-listener/src
+# RUN mkdir -p ${DIR}
+WORKDIR /build-app
 
-ADD ./src ./
-RUN go get -v ./...
-
+ADD ./ ./
+RUN go mod download
 RUN go test ./...
 
-WORKDIR ${DIR}/cmd
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o /listener .
 
 # PACK
-FROM scratch
+FROM alpine
 
 ENV BINDMAN_REVERSE_PROXY_ADDRESS ""
 ENV BINDMAN_DNS_MANAGER_ADDRESS ""

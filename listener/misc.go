@@ -2,6 +2,7 @@ package listener
 
 import (
 	"math"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -79,6 +80,74 @@ func getHostNamesFromLabel(text string) []string {
 		}
 	}
 	return nil
+}
+
+func getHostNamesFromLabelRegex(text string) []string {
+	// r, _ := regexp.Compile(`(?m)\x60([^\x60]*)\x60|Host\:([^;|^\s]*)`)
+	// r, _ := regexp.Compile(`Host\((((\x60([^\x60])*\x60)\,?\s?)*)\)|Host\:([^;|^\s]*)`)
+	r, _ := regexp.Compile(`(?m)Host\(((\x60[^\x60]*\x60\,?\s?)*)\)|Host\:([^;|^\s]*)`)
+	result := make([]string, 0)
+	for _, match := range r.FindAllStringSubmatch(text, -1) {
+		if len(match[1]) == 0 {
+			result = append(result, match[3])
+		} else {
+			itensTmp := strings.Split(strings.ReplaceAll(match[1], "`", ""), ",")
+			for _, iten := range itensTmp {
+				result = append(result, strings.TrimSpace(iten))
+			}
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func findTraefikLabelForHostNames(labels map[string]string) []string {
+	result := findLabel(traefikV1xHostNameLabelPattern(), labels)
+	result = append(result, findLabel(traefikV2xHostNameLabelPattern(), labels)...)
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func findTraefikLabelForEntryPoints(labels map[string]string) []string {
+	result := findLabel(traefikV1xEntryPointsLabelPattern(), labels)
+	result = append(result, findLabel(traefikV2xEntryPointsLabelPattern(), labels)...)
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func findLabel(pattern string, labels map[string]string) []string {
+	result := make([]string, 0)
+	r, _ := regexp.Compile(pattern)
+	for k := range labels {
+		if r.MatchString(k) {
+			result = append(result, k)
+		}
+	}
+	return result
+}
+
+func traefikV1xHostNameLabelPattern() string {
+	return `(?m)^traefik\.frontend\.rule$`
+}
+
+func traefikV1xEntryPointsLabelPattern() string {
+	return `(?m)^traefik\.frontend\.entryPoints$`
+}
+
+// - traefik.http.routers.*.rule
+func traefikV2xHostNameLabelPattern() string {
+	return `(?m)^traefik\.http\.routers\.[\S]*\.rule$`
+}
+
+// - traefik.http.routers.*.entryPoints
+func traefikV2xEntryPointsLabelPattern() string {
+	return `(?m)^traefik\.http\.routers\.[\S]*\.entryPoints$`
 }
 
 // ToFqdn converts the name into a fqdn appending a trailing dot.

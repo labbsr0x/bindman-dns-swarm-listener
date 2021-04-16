@@ -1,6 +1,10 @@
 package listener
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestNew(t *testing.T) {
 
@@ -82,4 +86,54 @@ func TestSandmanServiceCheck(t *testing.T) {
 	//if !result && len(err) > 0 {
 	//	t.Errorf("Expecting success. Got non-success execution for ss := '%v' and context tags := '%v' with errors: %v", ss, contextTags, err)
 	//}
+}
+
+func TestExtractLabelNamesForHostname(t *testing.T) {
+	labelsMap := make(map[string]string)
+	labelsMap["traefik.frontend.rule"] = "v1.x"
+	labelsMap["traefik.frontenda.rule"] = "v1.x"
+	labelsMap[" traefik.frontend.rule"] = "v1.x"
+	labelsMap["traefika..frontend.rulse "] = "v1.x"
+	labelsMap["traefik.http.routers.whoami.rule"] = "v2.x"
+	labelsMap["traefik.http.routers.asda00.rule"] = "v2.x"
+	labelsMap["traefik.http.routers.asda--asdad.rule"] = "v2.x"
+	labelsMap["traefik.http.routers.asda_Adsda.rule"] = "v2.x"
+	labelsMap["traefiks.https.routers.whoami.rules"] = "v2.x"
+	labelsMap[" traefiks.https.routers.whoami.rules"] = "v2.x"
+	labelsMap[" traefiks.https.routers.whoami.rules "] = "v2.x"
+
+	labelsExpectedResult := []string{"traefik.frontend.rule", "traefik.http.routers.whoami.rule", "traefik.http.routers.asda_Adsda.rule", "traefik.http.routers.asda00.rule", "traefik.http.routers.asda--asdad.rule"}
+	labels := findTraefikLabelForHostNames(labelsMap)
+
+	assert.ElementsMatch(t, labelsExpectedResult, labels)
+}
+
+func TestTextHostNameExtraction(t *testing.T) {
+	values := []string{
+		"80",
+		"traefik-net",
+		"internal_http,internal_https",
+		"true",
+		"Host(`anonovo2021.labbs.com.br`, `anonovo20212.labbs.com.br`)",
+		"Host:anonove2023.labbs.com.br",
+		"Host:anonovo1900.labbs.com.br; Host:anonovo1901.labbs.com.br ;Host:anonovo1902.labbs.com.br",
+		"Host(`anonovo2020.labbs.com.br`)",
+		"Host(`example.com`) || (Host(`example.org`) && Path(`/traefik`))",
+	}
+
+	expectedValues := make([][]string, 9)
+	expectedValues[0] = nil
+	expectedValues[1] = nil
+	expectedValues[2] = nil
+	expectedValues[3] = nil
+	expectedValues[4] = []string{"anonovo2021.labbs.com.br", "anonovo20212.labbs.com.br"}
+	expectedValues[5] = []string{"anonove2023.labbs.com.br"}
+	expectedValues[6] = []string{"anonovo1900.labbs.com.br", "anonovo1901.labbs.com.br", "anonovo1902.labbs.com.br"}
+	expectedValues[7] = []string{"anonovo2020.labbs.com.br"}
+	expectedValues[8] = []string{"example.com", "example.org"}
+
+	for i, text := range values {
+		results := getHostNamesFromLabelRegex(text)
+		assert.ElementsMatch(t, expectedValues[i], results)
+	}
 }
